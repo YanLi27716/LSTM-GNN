@@ -1,0 +1,52 @@
+import csv
+import numpy as np
+def csv_reader(add):
+    with open(path_Output, 'r') as f:
+        reader = csv.reader(f, delimiter=';')
+        headers = next(reader)
+        data = np.array(list(reader))[:,1:].astype(float)  
+    os.remove(path_Output)
+    return data[:,2:]
+
+def label_to_id(label, label_list):
+  return label_list.index(label) if label in label_list else -1
+
+def batch_graphify(input_features):
+  cur_length = input_features.shape[0]
+  perms_rec = []
+  for item in range(cur_length - 1):
+    perms_rec.append((item, (item + 1)))
+  perms_rec.append((cur_length - 1, 0))
+  perms_rec.sort()
+  edge_j, edge_i = zip(*perms_rec)
+  perms_rec = torch.tensor([edge_j, edge_i], dtype = torch.long)
+  return perms_rec
+
+def excute_CMD(path_ExcuteFile, path_Config, path_Audio, path_Output):
+    cmd = path_ExcuteFile + " -C " + path_Config + " -I " + path_Audio + " -D " + path_Output
+    call(cmd, shell=True)
+
+def batch_extract_features(path_Config, path_Output):
+    path_ExcuteFile = "./opensmile-3.0-linux-x64/bin/SMILExtract"
+    filename = dataset['train'][input_column]
+    label = dataset['train'][output_column]
+    for i in tqdm(range(len(filename)), position=0, leave=True):
+        path_Input = filename[i]
+        excute_CMD(path_ExcuteFile, path_Config, path_Input, path_Output)
+
+        MFCC = csv_reader(path_Output)
+        if 'impro' in filename[i]:
+          spont_feat = torch.Tensor([1, 0]).view(1, 2).repeat(MFCC.shape[0], 1).detach().cpu().numpy()
+        elif 'script' in filename[i]:
+          spont_feat = torch.Tensor([0, 1]).view(1, 2).repeat(MFCC.shape[0], 1).detach().cpu().numpy()
+
+        MFCC = np.concatenate([MFCC, spont_feat], axis=1)
+                            
+        target = label_to_id(label[i], label_list) 
+        target = torch.tensor(target, dtype = torch.int64)
+        input_features = torch.from_numpy(MFCC)
+        edge_index = batch_graphify(input_features)
+
+path_Config = "./opensmile-3.0-linux-x64/config/is09-13/IS10_paraling.conf"
+path_Output = './iemocap/iemo_smile.csv'
+batch_extract_features(path_Config, path_Output)
