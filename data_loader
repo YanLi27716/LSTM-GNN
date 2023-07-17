@@ -1,0 +1,20 @@
+save_path = "iemocap"
+from datasets import load_dataset, load_metric
+data_files = {
+    'train': f"{save_path}/train_fclass.csv",
+    'test': f"{save_path}/test_fclass.csv",
+}
+dataset = load_dataset('csv', data_files = data_files, delimiter = '\t')
+
+input_column = 'wav_file'
+output_column = 'emotion'
+label_list = dataset['train'].unique(output_column)
+label_list.sort()
+num_labels = len(label_list)
+print(f'A classification task with {num_labels} classes: {label_list}')
+config = {
+    "num_labels" : num_labels,
+    "label2id" : {label: i for i, label in enumerate(label_list)},
+    "id2label" : {i: label for i, label in enumerate(label_list)},
+    "target_sampling_rate" : 16000,
+}
